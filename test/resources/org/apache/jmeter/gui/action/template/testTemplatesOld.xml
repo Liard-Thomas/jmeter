@@ -1,0 +1,22 @@
+<?xml version="1.0"?>
+
+<!DOCTYPE templates SYSTEM "templatesOld.dtd">
+<templates>
+
+	<template isTestPlan="true">
+        <name>testTemplates1</name>
+        <fileName>/bin/templates/testTemplate.jmx.fmkr</fileName>
+        <description>first template</description>
+    </template>
+    <template isTestPlan="false">
+        <name>testTemplates2</name>
+        <fileName>/bin/templates/testTemplate.jmx.fmkr</fileName>
+        <description>Second Template</description>
+    </template>
+    <template isTestPlan="true">
+        <name>testTemplates3</name>
+        <fileName>/bin/templates/testTemplate.jmx.fmkr</fileName>
+        <description>Last template</description>
+    </template>
+    
+</templates>
