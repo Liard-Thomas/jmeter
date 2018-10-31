@@ -381,6 +381,13 @@ options when <code>-jar</code> is used.</p>
 <p>A popup appears, you can then choose a template among the list:
 <figure image="template_wizard.png">Templates popup</figure>
 </p>
+<p>Some templates may need parameters input from the user. For theses ones, after a click on the create button,
+a new window will appear as follow :
+<figure image="template_parameters.png">Parameters window</figure>
+</p>
+<p>
+When you are done with parameters, click on the validate button and the template will be created.
+</p>
 <p>A documentation for each template explains what to do once test plan is created from template.</p>
 </subsection>
 
