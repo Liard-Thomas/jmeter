@@ -19,34 +19,28 @@
 package org.apache.jmeter.gui.action.template;
 
 import java.io.File;
+import java.io.IOException;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
+import javax.xml.parsers.SAXParser;
+import javax.xml.parsers.SAXParserFactory;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.jmeter.util.JMeterUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import com.thoughtworks.xstream.XStream;
-import com.thoughtworks.xstream.io.StreamException;
-import com.thoughtworks.xstream.io.xml.DomDriver;
+import org.xml.sax.Attributes;
+import org.xml.sax.SAXException;
+import org.xml.sax.helpers.DefaultHandler;
 
 /**
  * Manages Test Plan templates
  * @since 2.10
  */
 public class TemplateManager {
-    // Created by XStream reading templates.xml
-    private static class Templates {
-        /*
-         * N.B. Must use LinkedHashMap for field type
-         * XStream creates a plain HashMap if one uses Map as the field type.
-         */
-        private final LinkedHashMap<String, Template> templates = new LinkedHashMap<>();
-    }
     private static final String TEMPLATE_FILES = JMeterUtils.getPropDefault("template.files", // $NON-NLS-1$
             "/bin/templates/templates.xml");
 
@@ -56,52 +50,12 @@ public class TemplateManager {
     
     private final Map<String, Template> allTemplates;
 
-    private final XStream xstream = initXStream();
-
     public static TemplateManager getInstance() {
         return SINGLETON;
     }
     
     private TemplateManager()  {
         allTemplates = readTemplates();            
-    }
-    
-    private XStream initXStream() {
-        XStream xstream = new XStream(new DomDriver(){
-            /**
-             * Create the DocumentBuilderFactory instance.
-             * See https://blog.compass-security.com/2012/08/secure-xml-parser-configuration/
-             * See https://github.com/x-stream/xstream/issues/25
-             * @return the new instance
-             */
-            @Override
-            protected DocumentBuilderFactory createDocumentBuilderFactory() {
-                final DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
-                try {
-                    factory.setFeature("http://xml.org/sax/features/external-general-entities", false);
-                    factory.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
-                } catch (ParserConfigurationException e) {
-                    throw new StreamException(e);
-                }
-                factory.setExpandEntityReferences(false);
-                return factory;
-            }
-        });
-        JMeterUtils.setupXStreamSecurityPolicy(xstream);
-        xstream.alias("template", Template.class);
-        xstream.alias("templates", Templates.class);
-        xstream.useAttributeFor(Template.class, "isTestPlan");
-        
-        // templates i
-        xstream.addImplicitMap(Templates.class, 
-                // field TemplateManager#templates 
-                "templates", // $NON-NLS-1$
-                Template.class,     
-                // field Template#name 
-                "name" // $NON-NLS-1$
-                );
-                
-        return xstream;
     }
 
     public void addTemplate(Template template) {
@@ -120,10 +74,12 @@ public class TemplateManager {
     }
 
     /**
-     * @return the templates names
+     * @return the templates names sorted in alphabetical order
      */
     public String[] getTemplateNames() {
-        return allTemplates.keySet().toArray(new String[allTemplates.size()]);
+        String [] result = allTemplates.keySet().toArray(new String[allTemplates.size()]);
+        Arrays.sort(result);
+        return result;
     }
 
     private Map<String, Template> readTemplates() {
@@ -132,14 +88,16 @@ public class TemplateManager {
         final String[] templateFiles = TEMPLATE_FILES.split(",");
         for (String templateFile : templateFiles) {
             if(!StringUtils.isEmpty(templateFile)) {
-                final File f = new File(JMeterUtils.getJMeterHome(), templateFile); 
+                final File file = new File(JMeterUtils.getJMeterHome(), templateFile); 
                 try {
-                    if(f.exists() && f.canRead()) {
+                    if(file.exists() && file.canRead()) {
                         if (log.isInfoEnabled()) {
-                            log.info("Reading templates from: {}", f.getAbsolutePath());
+                            log.info("Reading templates from: {}", file.getAbsolutePath());
                         }
-                        final File parent = f.getParentFile();
-                        final LinkedHashMap<String, Template> templates = ((Templates) xstream.fromXML(f)).templates;
+                        
+                        Map<String, Template> templates = parseTemplateFile(file);
+                        
+                        final File parent = file.getParentFile();
                         for(Template t : templates.values()) {
                             if (!t.getFileName().startsWith("/")) {
                                 t.setParent(parent);
@@ -149,18 +107,87 @@ public class TemplateManager {
                     } else {
                         if (log.isWarnEnabled()) {
                             log.warn("Ignoring template file:'{}' as it does not exist or is not readable",
-                                    f.getAbsolutePath());
+                                    file.getAbsolutePath());
                         }
                     }
                 } catch(Exception ex) {
                     if (log.isWarnEnabled()) {
-                        log.warn("Ignoring template file:'{}', an error occurred parsing the file", f.getAbsolutePath(),
+                        log.warn("Ignoring template file:'{}', an error occurred parsing the file", file.getAbsolutePath(),
                                 ex);
                     }
                 } 
             }
         }
         return temps;
+    }
+    
+    public Map<String, Template> parseTemplateFile(File file) throws SAXException, ParserConfigurationException, IOException{
+        SAXParserFactory factory = SAXParserFactory.newInstance();
+        SAXParser parser = factory.newSAXParser();
+        SaxHandler saxHandler = new SaxHandler();
+        parser.parse(file, saxHandler);
+        return saxHandler.getTemplatesMap();
+    }
+    
+    // used to parse the templates.xml document
+    private class SaxHandler extends DefaultHandler {
+        LinkedHashMap<String, Template> templatesMap = new LinkedHashMap<>();
+        
+        private Template template;
+        private String node;
+        private StringBuilder nodeBuffer = new StringBuilder();
+        private Map<String, String> parameters = new LinkedHashMap<>();
+        
+        @Override
+        public void characters(char[] data, int start, int end){
+            if(!node.equals("description")) {
+                nodeBuffer = new StringBuilder();
+            }
+            nodeBuffer.append(data, start, end);
+            
+            if(!nodeBuffer.toString().equals("\n        ")) { //need this line to avoid getting wrong nodeBuffer when the node is closed 
+                if(node.equals("name")) {
+                    template.setName(nodeBuffer.toString());
+                }else if(node.equals("fileName")) {
+                    template.setFileName(nodeBuffer.toString());
+                }else if(node.equals("description")) {
+                    template.setDescription(nodeBuffer.toString());
+                }
+            }
+         }
+        
+        @Override
+        public void startElement(String namespaceURI, String lname,
+            String qname, Attributes attrs) throws SAXException {
+
+            node = qname;
+            if(qname.equals("template")) {
+                if(template != null) {
+                    template.setParameters(parameters);
+                    templatesMap.put(template.getName(), template);
+                    parameters = new LinkedHashMap<>();
+                }
+                template = new Template();
+                template.setTestPlan(Boolean.valueOf(attrs.getValue("isTestPlan")));
+            }else if(qname.equals("parameter")) {
+                String keyParam = attrs.getValue("key");
+                String valueParam = attrs.getValue("defaultValue");
+                parameters.put(keyParam, valueParam);
+            }
+          }
+
+        // need this method to put the last template in the map
+        @Override
+        public void endDocument() throws SAXException {
+            if(template != null) {
+                template.setParameters(parameters);
+                templatesMap.put(template.getName(), template);
+            }
+        }
+
+        public Map<String, Template> getTemplatesMap(){
+            return templatesMap;
+        }
     }
 
     /**
