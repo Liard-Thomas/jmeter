@@ -40,11 +40,13 @@ import java.util.Map.Entry;
 import javax.swing.AbstractAction;
 import javax.swing.Action;
 import javax.swing.ActionMap;
+import javax.swing.BorderFactory;
 import javax.swing.InputMap;
 import javax.swing.JButton;
 import javax.swing.JComponent;
 import javax.swing.JDialog;
 import javax.swing.JFrame;
+import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JRootPane;
@@ -339,6 +341,13 @@ public class SelectTemplatesDialog extends JDialog implements ChangeListener, Ac
     
     private JPanel choseParametersPanel(Map<String, String> parameters) {
         JPanel panel = new JPanel(new BorderLayout());
+        
+        JPanel northPanel = new JPanel(new FlowLayout());
+        JLabel label = new JLabel("Fill your parameters : ");
+        label.setPreferredSize(new Dimension(150,35));
+        northPanel.add(label);
+        panel.add(northPanel, BorderLayout.NORTH);
+        
         buttonsParameters.clear();
         
         GridBagConstraints gbc = new GridBagConstraints();
