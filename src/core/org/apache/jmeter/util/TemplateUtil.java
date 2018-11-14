@@ -28,6 +28,7 @@ public class TemplateUtil {
         if(templateConfiguration == null) {
             templateConfiguration = new Configuration(Configuration.getVersion());
             templateConfiguration.setDefaultEncoding("UTF-8");
+            templateConfiguration.setInterpolationSyntax(Configuration.SQUARE_BRACKET_INTERPOLATION_SYNTAX);
             templateConfiguration.setTemplateExceptionHandler(TemplateExceptionHandler.RETHROW_HANDLER);
         }
         return templateConfiguration;

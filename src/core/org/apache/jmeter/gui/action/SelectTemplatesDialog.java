@@ -167,7 +167,9 @@ public class SelectTemplatesDialog extends JDialog implements ChangeListener, Ac
         
         String jmeterTemplateDirectory = JMeterUtils.getJMeterBinDir()+separator+"templates"; // $NON-NLS-1$
         String jmxFolderPath = jmeterTemplateDirectory+separator+template.getName();
-        if(buttonsParameters != null && !buttonsParameters.isEmpty()) { // handle customized templates (the .jmx.fmkr files)
+        
+        // handle customized templates (the .jmx.fmkr files)
+        if(buttonsParameters != null && !buttonsParameters.isEmpty()) {
             File fmkrFile = new File(template.getFileName());
             String fmkrFileName = fmkrFile.getName();
             String jmxFileName = fmkrFileName.substring(0, fmkrFileName.length()-5);
