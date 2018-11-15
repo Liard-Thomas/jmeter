@@ -1,7 +1,5 @@
-<jm:templates
-    xmlns:jm="http://jmeter.apache.org/"
-	xmlns:xsi="http://www.w3.org/2001/XMLSchema"
-	xsi:schemaLocation="http://jmeter.apache.org/ templates.xsd">
+<templates
+	xsi:schemaLocation="https://jmeter.apache.org/ templates.xsd">
 	<template isTestPlan="false">
 		<name>testTemplateNotTestPlan</name>
 		<fileName>/bin/templates/testTemplateNotTestPlan.jmx</fileName>
@@ -22,4 +20,4 @@
 			<parameter key="testKey3" defaultValue="n 3" />
 		</parameters>
 	</template>
-</jm:templates>
+</templates>
