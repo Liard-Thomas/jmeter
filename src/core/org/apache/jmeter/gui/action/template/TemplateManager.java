@@ -23,6 +23,7 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.TreeMap;
 
 import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.parsers.SAXParser;
@@ -131,42 +132,21 @@ public class TemplateManager {
     
     // used to parse the templates.xml document
     private class SaxHandler extends DefaultHandler {
-        LinkedHashMap<String, Template> templatesMap = new LinkedHashMap<>();
+        TreeMap<String, Template> templatesMap = new TreeMap<>();
         
         private Template template;
-        private String node;
         private StringBuilder nodeBuffer = new StringBuilder();
         private Map<String, String> parameters = new LinkedHashMap<>();
         
         @Override
         public void characters(char[] data, int start, int end){
-            if(!node.equals("description")) {
-                nodeBuffer = new StringBuilder();
-            }
             nodeBuffer.append(data, start, end);
-            
-            if(!nodeBuffer.toString().equals("\n        ")) { //need this line to avoid getting wrong nodeBuffer when the node is closed 
-                if(node.equals("name")) {
-                    template.setName(nodeBuffer.toString());
-                }else if(node.equals("fileName")) {
-                    template.setFileName(nodeBuffer.toString());
-                }else if(node.equals("description")) {
-                    template.setDescription(nodeBuffer.toString());
-                }
-            }
          }
         
         @Override
         public void startElement(String namespaceURI, String lname,
             String qname, Attributes attrs) throws SAXException {
-
-            node = qname;
             if(qname.equals("template")) {
-                if(template != null) {
-                    template.setParameters(parameters);
-                    templatesMap.put(template.getName(), template);
-                    parameters = new LinkedHashMap<>();
-                }
                 template = new Template();
                 template.setTestPlan(Boolean.valueOf(attrs.getValue("isTestPlan")));
             }else if(qname.equals("parameter")) {
@@ -174,6 +154,7 @@ public class TemplateManager {
                 String valueParam = attrs.getValue("defaultValue");
                 parameters.put(keyParam, valueParam);
             }
+            nodeBuffer = new StringBuilder();
           }
 
         // need this method to put the last template in the map
@@ -182,6 +163,21 @@ public class TemplateManager {
             if(template != null) {
                 template.setParameters(parameters);
                 templatesMap.put(template.getName(), template);
+            }
+        }
+        
+        @Override
+        public void endElement(String uri, String localName, String qName) throws SAXException{
+            if(qName.equals("name")) {
+                template.setName(nodeBuffer.toString());
+            }else if(qName.equals("fileName")) {
+                template.setFileName(nodeBuffer.toString());
+            }else if(qName.equals("description")) {
+                template.setDescription(nodeBuffer.toString());
+            } else if(qName.equals("template")) {
+                template.setParameters(parameters);
+                templatesMap.put(template.getName(), template);
+                parameters = new LinkedHashMap<>();
             }
         }
 
