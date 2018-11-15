@@ -20,22 +20,25 @@ package org.apache.jmeter.gui.action.template;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.Arrays;
-import java.util.LinkedHashMap;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.TreeMap;
 
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
-import javax.xml.parsers.SAXParser;
-import javax.xml.parsers.SAXParserFactory;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.jmeter.util.JMeterUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.xml.sax.Attributes;
+import org.w3c.dom.Document;
+import org.w3c.dom.Element;
+import org.w3c.dom.Node;
+import org.w3c.dom.NodeList;
+import org.xml.sax.ErrorHandler;
 import org.xml.sax.SAXException;
-import org.xml.sax.helpers.DefaultHandler;
+import org.xml.sax.SAXParseException;
 
 /**
  * Manages Test Plan templates
@@ -44,6 +47,10 @@ import org.xml.sax.helpers.DefaultHandler;
 public class TemplateManager {
     private static final String TEMPLATE_FILES = JMeterUtils.getPropDefault("template.files", // $NON-NLS-1$
             "/bin/templates/templates.xml");
+
+    static final String JAXP_SCHEMA_LANGUAGE = "http://java.sun.com/xml/jaxp/properties/schemaLanguage";
+    static final String W3C_XML_SCHEMA = "http://www.w3.org/2001/XMLSchema";
+    static final String JAXP_SCHEMA_SOURCE = "http://java.sun.com/xml/jaxp/properties/schemaSource";
 
     private static final Logger log = LoggerFactory.getLogger(TemplateManager.class);
     
@@ -78,13 +85,11 @@ public class TemplateManager {
      * @return the templates names sorted in alphabetical order
      */
     public String[] getTemplateNames() {
-        String [] result = allTemplates.keySet().toArray(new String[allTemplates.size()]);
-        Arrays.sort(result);
-        return result;
+        return allTemplates.keySet().toArray(new String[allTemplates.size()]);
     }
 
     private Map<String, Template> readTemplates() {
-        final Map<String, Template> temps = new LinkedHashMap<>();
+        final Map<String, Template> temps = new TreeMap<>();
        
         final String[] templateFiles = TEMPLATE_FILES.split(",");
         for (String templateFile : templateFiles) {
@@ -122,68 +127,79 @@ public class TemplateManager {
         return temps;
     }
     
-    public Map<String, Template> parseTemplateFile(File file) throws SAXException, ParserConfigurationException, IOException{
-        SAXParserFactory factory = SAXParserFactory.newInstance();
-        SAXParser parser = factory.newSAXParser();
-        SaxHandler saxHandler = new SaxHandler();
-        parser.parse(file, saxHandler);
-        return saxHandler.getTemplatesMap();
+    public final class LoggingErrorHandler implements ErrorHandler {
+        private Logger logger;
+
+        public LoggingErrorHandler(Logger logger) {
+            this.logger = logger;
+        }
+        @Override
+        public void error(SAXParseException ex) throws SAXException {
+            throw ex;
+        }
+
+        @Override
+        public void fatalError(SAXParseException ex) throws SAXException {
+            throw ex;
+        }
+
+        @Override
+        public void warning(SAXParseException ex) throws SAXException {
+            logger.warn("Warning", ex);
+        }
     }
     
-    // used to parse the templates.xml document
-    private class SaxHandler extends DefaultHandler {
-        TreeMap<String, Template> templatesMap = new TreeMap<>();
-        
-        private Template template;
-        private StringBuilder nodeBuffer = new StringBuilder();
-        private Map<String, String> parameters = new LinkedHashMap<>();
-        
-        @Override
-        public void characters(char[] data, int start, int end){
-            nodeBuffer.append(data, start, end);
-         }
-        
-        @Override
-        public void startElement(String namespaceURI, String lname,
-            String qname, Attributes attrs) throws SAXException {
-            if(qname.equals("template")) {
-                template = new Template();
-                template.setTestPlan(Boolean.valueOf(attrs.getValue("isTestPlan")));
-            }else if(qname.equals("parameter")) {
-                String keyParam = attrs.getValue("key");
-                String valueParam = attrs.getValue("defaultValue");
-                parameters.put(keyParam, valueParam);
-            }
-            nodeBuffer = new StringBuilder();
-          }
+    public Map<String, Template> parseTemplateFile(File file) throws IOException, SAXException, ParserConfigurationException{
+        DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
+        dbf.setValidating(true);
+        dbf.setNamespaceAware(true);
+        dbf.setAttribute(JAXP_SCHEMA_LANGUAGE,
+                W3C_XML_SCHEMA);
+        dbf.setAttribute(JAXP_SCHEMA_SOURCE,
+               JMeterUtils.getJMeterBinDir()+"/templates/templates.xsd");
+        DocumentBuilder bd = dbf.newDocumentBuilder();
+        LoggingErrorHandler errorHandler = new LoggingErrorHandler(log);
+        bd.setErrorHandler(errorHandler);
+        Document document = bd.parse(file.getAbsolutePath());
+        document.getDocumentElement().normalize();
+        Map<String, Template> templates = new TreeMap<>();
+        NodeList templateNodes = document.getElementsByTagName("template");
+        for (int i = 0; i < templateNodes.getLength(); i++) {
+            Node node = templateNodes.item(i);
+            parseTemplateNode(templates, node);
+        }
+        return templates;
+    }
 
-        // need this method to put the last template in the map
-        @Override
-        public void endDocument() throws SAXException {
-            if(template != null) {
+    /**
+     * @param templates
+     * @param templateNode
+     */
+    void parseTemplateNode(Map<String, Template> templates, Node templateNode) {
+        if (templateNode.getNodeType() == Node.ELEMENT_NODE) {
+            Template template = new Template();
+            Element element =  (Element) templateNode;
+            template.setTestPlan("true".equals(element.getAttribute("isTestPlan")));
+            template.setName(element.getElementsByTagName("name").item(0).getTextContent());
+            template.setDescription(element.getElementsByTagName("description").item(0).getTextContent());
+            template.setFileName(element.getElementsByTagName("fileName").item(0).getTextContent());
+            NodeList nl = element.getElementsByTagName("parameters");
+            if(nl.getLength()>0) {
+                NodeList parameterNodes = ((Element) nl.item(0)).getElementsByTagName("parameter");
+                Map<String, String> parameters = parseParameterNodes(parameterNodes);
                 template.setParameters(parameters);
-                templatesMap.put(template.getName(), template);
             }
+            templates.put(template.getName(), template);
         }
-        
-        @Override
-        public void endElement(String uri, String localName, String qName) throws SAXException{
-            if(qName.equals("name")) {
-                template.setName(nodeBuffer.toString());
-            }else if(qName.equals("fileName")) {
-                template.setFileName(nodeBuffer.toString());
-            }else if(qName.equals("description")) {
-                template.setDescription(nodeBuffer.toString());
-            } else if(qName.equals("template")) {
-                template.setParameters(parameters);
-                templatesMap.put(template.getName(), template);
-                parameters = new LinkedHashMap<>();
-            }
-        }
+    }
 
-        public Map<String, Template> getTemplatesMap(){
-            return templatesMap;
+    private Map<String, String> parseParameterNodes(NodeList parameterNodes) {
+        Map<String, String> parametersMap = new HashMap<>();
+        for (int i = 0; i < parameterNodes.getLength(); i++) {
+            Element element =  (Element) parameterNodes.item(i);
+            parametersMap.put(element.getAttribute("key"), element.getAttribute("defaultValue"));
         }
+        return parametersMap;
     }
 
     /**

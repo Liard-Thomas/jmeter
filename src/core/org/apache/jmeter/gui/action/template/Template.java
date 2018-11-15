@@ -163,5 +163,24 @@ public class Template {
         
         return true;
     }
+    /* (non-Javadoc)
+     * @see java.lang.Object#toString()
+     */
+    @Override
+    public String toString() {
+        StringBuilder builder = new StringBuilder();
+        builder.append("Template [isTestPlan=");
+        builder.append(isTestPlan);
+        builder.append(", name=");
+        builder.append(name);
+        builder.append(", fileName=");
+        builder.append(fileName);
+        builder.append(", description=");
+        builder.append(description);
+        builder.append(", parameters=");
+        builder.append(parameters);
+        builder.append("]");
+        return builder.toString();
+    }
 
 }

@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
-	targetNamespace="https://jmeter.apache.org/"
-	xmlns="https://jmeter.apache.org/" elementFormDefault="qualified">
+	targetNamespace="http://jmeter.apache.org/"
+	xmlns="http://jmeter.apache.org/" elementFormDefault="qualified">
 
 	<!-- parameters element -->
 	<xs:element name="parameters">
