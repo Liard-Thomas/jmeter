@@ -1,0 +1,26 @@
+<templates
+	xsi:schemaLocation="http://jmeter.apache.org/ templates.xsd">
+	<template isTestPlan="true">
+		<name>Buggy</name>
+		<fileName>/bin/templates/testTemplate.jmx.fmkr</fileName>
+		<description>
+			<h1>Test</h1>
+			<h2>Overview</h2>
+			This is a sample BeanShell sampler which shows how to use some of its
+			features.
+			<br />
+			Please select a suitable location in the tree before merging.
+			<h2>Useful links</h2>
+			<ul>
+				<li>
+					<a
+						href="http://jmeter.apache.org/usermanual/component_reference.html#BeanShell_Sampler">http://jmeter.apache.org/usermanual/component_reference.html#BeanShell_Sampler</a>
+				</li>
+			</ul>
+		</description>
+		<parameters>
+			<key>citrixPortalHost</key>
+			<defaultValue>https://foo.com</defaultValue>
+		</parameters>
+	</template>
+</templates>
